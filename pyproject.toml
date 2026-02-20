@@ -1,0 +1,25 @@
+[project]
+name = "nitbench-runner"
+version = "0.1.0"
+description = "NitBench validating harness and runner"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "jsonschema>=4.22.0",
+    "pyyaml>=6.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nitbench"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

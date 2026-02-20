@@ -1,0 +1,35 @@
+{
+  "checkpoints_version": "nitbench.checkpoints.v1",
+  "case_id": "test.case.003",
+  "context_proxy": {
+    "type": "agent_action_count"
+  },
+  "checkpoints": [
+    {
+      "id": "cp1",
+      "phase": "baseline",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 5
+      }
+    },
+    {
+      "id": "cp2",
+      "phase": "injection",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 15
+      }
+    },
+    {
+      "id": "cp3",
+      "phase": "final",
+      "score": true,
+      "trigger": {
+        "type": "end_of_run"
+      }
+    }
+  ]
+}

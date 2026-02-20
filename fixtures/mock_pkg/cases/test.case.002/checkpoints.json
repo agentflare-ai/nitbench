@@ -1,0 +1,44 @@
+{
+  "checkpoints_version": "nitbench.checkpoints.v1",
+  "case_id": "test.case.002",
+  "context_proxy": {
+    "type": "diff_loc"
+  },
+  "checkpoints": [
+    {
+      "id": "cp1",
+      "phase": "baseline",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 10
+      }
+    },
+    {
+      "id": "cp2",
+      "phase": "work",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 50
+      }
+    },
+    {
+      "id": "cp3",
+      "phase": "work",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 100
+      }
+    },
+    {
+      "id": "cp4",
+      "phase": "final",
+      "score": true,
+      "trigger": {
+        "type": "end_of_run"
+      }
+    }
+  ]
+}

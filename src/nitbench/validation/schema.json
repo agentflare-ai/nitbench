@@ -1,0 +1,1512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nitbench:schema:1.0.0",
+  "title": "NitBench Schemas",
+  "$defs": {
+    "NonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "CaseId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"
+    },
+    "Semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([+-][0-9A-Za-z.-]+)?$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "RelPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*\\0)(?!.*\\.{2}(/|$)).*$"
+    },
+    "Glob": {
+      "type": "string",
+      "minLength": 1
+    },
+    "AIFRuleId": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9._-]{0,63}$"
+    },
+    "ReasoningLevel": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      ]
+    },
+    "AgentProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_family",
+        "agent_version",
+        "model_id",
+        "reasoning_level",
+        "interaction_mode",
+        "aut_mode",
+        "tool_mode"
+      ],
+      "properties": {
+        "agent_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agent_version": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "model_id": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "reasoning_level": {
+          "$ref": "#/$defs/ReasoningLevel"
+        },
+        "interaction_mode": {
+          "type": "string",
+          "enum": [
+            "pty",
+            "batch"
+          ]
+        },
+        "aut_mode": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "assisted"
+          ]
+        },
+        "tool_mode": {
+          "type": "string",
+          "enum": [
+            "interactive_pty"
+          ]
+        }
+      }
+    },
+    "Index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index_version",
+        "spec_version",
+        "cases"
+      ],
+      "properties": {
+        "index_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.index.v1"
+          ]
+        },
+        "spec_version": {
+          "$ref": "#/$defs/Semver"
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "title",
+              "path"
+            ],
+            "properties": {
+              "case_id": {
+                "$ref": "#/$defs/CaseId"
+              },
+              "title": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "path": {
+                "$ref": "#/$defs/RelPath"
+              },
+              "languages": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "difficulty": {
+                "type": "string",
+                "enum": [
+                  "easy",
+                  "medium",
+                  "hard",
+                  "adversarial"
+                ]
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "OracleModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "oracle_model_version",
+        "execution",
+        "config_visibility",
+        "bundle_source"
+      ],
+      "properties": {
+        "oracle_model_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.oracle_model.v1"
+          ]
+        },
+        "execution": {
+          "type": "string",
+          "enum": [
+            "harness_only"
+          ]
+        },
+        "config_visibility": {
+          "type": "string",
+          "enum": [
+            "harness_private"
+          ]
+        },
+        "bundle_source": {
+          "type": "string",
+          "enum": [
+            "aif_derived"
+          ]
+        }
+      }
+    },
+    "AUTSandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "network",
+        "allowed_tools",
+        "allowed_write_globs",
+        "protected_globs",
+        "prohibited_executable_sets",
+        "prohibited_attempt_policy"
+      ],
+      "properties": {
+        "network": {
+          "type": "string",
+          "enum": [
+            "forbidden"
+          ]
+        },
+        "allowed_tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "version_cmd",
+              "version_regex"
+            ],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "version_cmd": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/NonEmptyString"
+                }
+              },
+              "version_regex": {
+                "$ref": "#/$defs/NonEmptyString"
+              }
+            }
+          }
+        },
+        "allowed_write_globs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Glob"
+          }
+        },
+        "protected_globs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Glob"
+          }
+        },
+        "prohibited_executable_sets": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "enum": [
+              "nitbench.prohibited.lint_format.standard",
+              "nitbench.prohibited.install.standard"
+            ]
+          }
+        },
+        "prohibited_executables_extra": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NonEmptyString"
+          }
+        },
+        "prohibited_attempt_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lint_format",
+            "install"
+          ],
+          "properties": {
+            "lint_format": {
+              "type": "string",
+              "enum": [
+                "record_only",
+                "invalid"
+              ]
+            },
+            "install": {
+              "type": "string",
+              "enum": [
+                "record_only",
+                "invalid"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_version",
+        "case_id",
+        "title",
+        "languages",
+        "difficulty",
+        "weight",
+        "repo",
+        "aif_map",
+        "aif_map_default",
+        "budgets",
+        "oracle_model",
+        "aut_sandbox",
+        "allow_aif_modification",
+        "allow_batch_mode"
+      ],
+      "properties": {
+        "case_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.case.v1"
+          ]
+        },
+        "case_id": {
+          "$ref": "#/$defs/CaseId"
+        },
+        "title": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "languages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": [
+            "easy",
+            "medium",
+            "hard",
+            "adversarial"
+          ]
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "repo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "representation",
+            "path"
+          ],
+          "properties": {
+            "representation": {
+              "type": "string",
+              "enum": [
+                "git_worktree",
+                "patchset"
+              ]
+            },
+            "path": {
+              "$ref": "#/$defs/RelPath"
+            },
+            "head_rev": {
+              "type": "string",
+              "minLength": 7
+            }
+          }
+        },
+        "aif_map": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agent_family",
+              "template_path",
+              "target_path"
+            ],
+            "properties": {
+              "agent_family": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "template_path": {
+                "$ref": "#/$defs/RelPath"
+              },
+              "target_path": {
+                "$ref": "#/$defs/RelPath"
+              }
+            }
+          }
+        },
+        "aif_map_default": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "template_path",
+            "target_path"
+          ],
+          "properties": {
+            "template_path": {
+              "$ref": "#/$defs/RelPath"
+            },
+            "target_path": {
+              "$ref": "#/$defs/RelPath"
+            }
+          }
+        },
+        "budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_agent_actions"
+          ],
+          "properties": {
+            "max_agent_actions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_commits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_wall_seconds": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "oracle_model": {
+          "$ref": "#/$defs/OracleModel"
+        },
+        "aut_sandbox": {
+          "$ref": "#/$defs/AUTSandbox"
+        },
+        "allow_aif_modification": {
+          "type": "boolean"
+        },
+        "allow_batch_mode": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Checkpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoints_version",
+        "case_id",
+        "context_proxy",
+        "checkpoints"
+      ],
+      "properties": {
+        "checkpoints_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.checkpoints.v1"
+          ]
+        },
+        "case_id": {
+          "$ref": "#/$defs/CaseId"
+        },
+        "context_proxy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "agent_action_count",
+                "commit_count",
+                "diff_loc",
+                "checkpoint_index"
+              ]
+            }
+          }
+        },
+        "checkpoints": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/CheckpointDef"
+          }
+        }
+      }
+    },
+    "CheckpointDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "trigger",
+        "score",
+        "phase"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "baseline",
+            "work",
+            "injection",
+            "post_injection",
+            "final"
+          ]
+        },
+        "score": {
+          "type": "boolean"
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "oracles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NonEmptyString"
+          }
+        },
+        "trigger": {
+          "$ref": "#/$defs/CheckpointTrigger"
+        }
+      }
+    },
+    "CheckpointTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "at_proxy_value",
+            "end_of_run"
+          ]
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "Scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scoring_version",
+        "case_id",
+        "oracle_bundle",
+        "normalization",
+        "severity_weights",
+        "category_weights",
+        "oracle_weights",
+        "oracles"
+      ],
+      "properties": {
+        "scoring_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.scoring.v1"
+          ]
+        },
+        "case_id": {
+          "$ref": "#/$defs/CaseId"
+        },
+        "oracle_bundle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bundle_type",
+            "generator_id",
+            "generator_version",
+            "manifest_version"
+          ],
+          "properties": {
+            "bundle_type": {
+              "type": "string",
+              "enum": [
+                "aif_derived_opaque"
+              ]
+            },
+            "generator_id": {
+              "$ref": "#/$defs/NonEmptyString"
+            },
+            "generator_version": {
+              "$ref": "#/$defs/Semver"
+            },
+            "manifest_version": {
+              "type": "string",
+              "enum": [
+                "nitbench.oracle_manifest.v1"
+              ]
+            }
+          }
+        },
+        "normalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "violation_budget"
+          ],
+          "properties": {
+            "violation_budget": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "severity_weights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "properties": {
+            "error": {
+              "type": "number",
+              "minimum": 0
+            },
+            "warning": {
+              "type": "number",
+              "minimum": 0
+            },
+            "info": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "category_weights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "lint",
+            "naming",
+            "convention"
+          ],
+          "properties": {
+            "format": {
+              "type": "number",
+              "minimum": 0
+            },
+            "lint": {
+              "type": "number",
+              "minimum": 0
+            },
+            "naming": {
+              "type": "number",
+              "minimum": 0
+            },
+            "convention": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "oracle_weights": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "oracles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/OracleDef"
+          }
+        }
+      }
+    },
+    "OracleDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "exec_context",
+        "tool_id",
+        "repo_config_policy",
+        "category",
+        "soft_rule",
+        "cwd",
+        "command",
+        "timeout_seconds",
+        "mutates_snapshot",
+        "expected_exit_codes",
+        "counting"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "exec_context": {
+          "type": "string",
+          "enum": [
+            "harness"
+          ]
+        },
+        "tool_id": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "repo_config_policy": {
+          "type": "string",
+          "enum": [
+            "ignore_repo_configs"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "format",
+            "lint",
+            "naming",
+            "convention"
+          ]
+        },
+        "soft_rule": {
+          "type": "boolean"
+        },
+        "cwd": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/NonEmptyString"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mutates_snapshot": {
+          "type": "boolean"
+        },
+        "expected_exit_codes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ok",
+            "violations"
+          ],
+          "properties": {
+            "ok": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "violations": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "tool_error": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "counting": {
+          "$ref": "#/$defs/Counting"
+        }
+      }
+    },
+    "Counting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "exit_code",
+            "regex",
+            "json_stdout",
+            "json_file",
+            "sarif_file"
+          ]
+        },
+        "regex_error": {
+          "type": "string"
+        },
+        "regex_warning": {
+          "type": "string"
+        },
+        "regex_info": {
+          "type": "string"
+        },
+        "json_source": {
+          "type": "string",
+          "enum": [
+            "stdout",
+            "stderr"
+          ]
+        },
+        "json_path_error": {
+          "type": "string"
+        },
+        "json_path_warning": {
+          "type": "string"
+        },
+        "json_path_info": {
+          "type": "string"
+        },
+        "file_path": {
+          "$ref": "#/$defs/RelPath"
+        }
+      }
+    },
+    "OracleBundleManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_version",
+        "case_id",
+        "generator_id",
+        "generator_version",
+        "aif_sha256",
+        "oracle_bundle_sha256",
+        "rules"
+      ],
+      "properties": {
+        "manifest_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.oracle_manifest.v1"
+          ]
+        },
+        "case_id": {
+          "$ref": "#/$defs/CaseId"
+        },
+        "generator_id": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "generator_version": {
+          "$ref": "#/$defs/Semver"
+        },
+        "aif_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "oracle_bundle_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "oracle_id",
+              "oracle_rule_id",
+              "aif_rule_refs"
+            ],
+            "properties": {
+              "oracle_id": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "oracle_rule_id": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "aif_rule_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/AIFRuleId"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hashes_version",
+        "spec_version",
+        "case_id",
+        "agent_profile_sha256",
+        "task_md_sha256",
+        "aif_sha256",
+        "repo_initial_sha256",
+        "oracle_bundle_sha256",
+        "checkpoints"
+      ],
+      "properties": {
+        "hashes_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.hashes.v1"
+          ]
+        },
+        "spec_version": {
+          "$ref": "#/$defs/Semver"
+        },
+        "case_id": {
+          "$ref": "#/$defs/CaseId"
+        },
+        "agent_profile_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "task_md_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "aif_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "repo_initial_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "oracle_bundle_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "checkpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "checkpoint_id",
+              "repo_state_sha256"
+            ],
+            "properties": {
+              "checkpoint_id": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "repo_state_sha256": {
+                "$ref": "#/$defs/Sha256"
+              }
+            }
+          }
+        }
+      }
+    },
+    "OracleResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "oracle_id",
+        "exit_code",
+        "status",
+        "error_count",
+        "warning_count",
+        "info_count"
+      ],
+      "properties": {
+        "oracle_id": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "violations",
+            "tool_error"
+          ]
+        },
+        "error_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "info_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "Run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_version",
+        "spec_version",
+        "case_id",
+        "agent_profile",
+        "interaction_mode",
+        "aut_mode",
+        "start_time_utc",
+        "end_time_utc",
+        "toolchain",
+        "checkpoints",
+        "metrics",
+        "validity"
+      ],
+      "properties": {
+        "run_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.run.v1"
+          ]
+        },
+        "spec_version": {
+          "$ref": "#/$defs/Semver"
+        },
+        "case_id": {
+          "$ref": "#/$defs/CaseId"
+        },
+        "agent_profile": {
+          "$ref": "#/$defs/AgentProfile"
+        },
+        "interaction_mode": {
+          "type": "string",
+          "enum": [
+            "pty",
+            "batch"
+          ]
+        },
+        "aut_mode": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "assisted"
+          ]
+        },
+        "start_time_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "toolchain": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "os",
+            "arch",
+            "git_version"
+          ],
+          "properties": {
+            "os": {
+              "type": "string"
+            },
+            "arch": {
+              "type": "string"
+            },
+            "git_version": {
+              "type": "string"
+            }
+          }
+        },
+        "checkpoints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "checkpoint_id",
+              "proxy_value",
+              "mass",
+              "new_mass",
+              "sras",
+              "oracles"
+            ],
+            "properties": {
+              "checkpoint_id": {
+                "$ref": "#/$defs/NonEmptyString"
+              },
+              "proxy_value": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mass": {
+                "type": "number",
+                "minimum": 0
+              },
+              "new_mass": {
+                "type": "number",
+                "minimum": 0
+              },
+              "sras": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "oracles": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/OracleResult"
+                }
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "SRAS",
+            "DR",
+            "RR",
+            "IVS",
+            "OS",
+            "PIR"
+          ],
+          "properties": {
+            "SRAS": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "DR": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "RR": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "IVS": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "OS": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "PIR": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "validity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "case_valid",
+            "run_valid",
+            "invalid_reasons",
+            "penalties"
+          ],
+          "properties": {
+            "case_valid": {
+              "type": "boolean"
+            },
+            "run_valid": {
+              "type": "boolean"
+            },
+            "invalid_reasons": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/NonEmptyString"
+              }
+            },
+            "penalties": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/NonEmptyString"
+              }
+            }
+          }
+        }
+      }
+    },
+    "SensitivityRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "SRAS",
+        "DR",
+        "RR",
+        "OS"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "SRAS": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "DR": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "RR": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "OS": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "Report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_version",
+        "spec_version",
+        "suite_id",
+        "cases",
+        "results",
+        "reasoning_sensitivity",
+        "model_sensitivity"
+      ],
+      "properties": {
+        "report_version": {
+          "type": "string",
+          "enum": [
+            "nitbench.report.v1"
+          ]
+        },
+        "spec_version": {
+          "$ref": "#/$defs/Semver"
+        },
+        "suite_id": {
+          "$ref": "#/$defs/NonEmptyString"
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "weight"
+            ],
+            "properties": {
+              "case_id": {
+                "$ref": "#/$defs/CaseId"
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agent_family",
+              "model_id",
+              "reasoning_level",
+              "interaction_mode",
+              "aut_mode",
+              "suite_metrics"
+            ],
+            "properties": {
+              "agent_family": {
+                "type": "string"
+              },
+              "model_id": {
+                "type": "string"
+              },
+              "reasoning_level": {
+                "$ref": "#/$defs/ReasoningLevel"
+              },
+              "interaction_mode": {
+                "type": "string",
+                "enum": [
+                  "pty",
+                  "batch"
+                ]
+              },
+              "aut_mode": {
+                "type": "string",
+                "enum": [
+                  "manual",
+                  "assisted"
+                ]
+              },
+              "suite_metrics": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "SRAS_suite",
+                  "DR_suite",
+                  "RR_suite",
+                  "IVS_suite",
+                  "OS_suite",
+                  "PIR_suite"
+                ],
+                "properties": {
+                  "SRAS_suite": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "DR_suite": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "RR_suite": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "IVS_suite": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "OS_suite": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "PIR_suite": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "reasoning_sensitivity": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SensitivityRecord"
+          }
+        },
+        "model_sensitivity": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SensitivityRecord"
+          }
+        }
+      }
+    },
+    "NBCastHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version",
+        "timestamp_utc",
+        "interaction_mode"
+      ],
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "nitbench.cast"
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "timestamp_utc": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "interaction_mode": {
+          "type": "string",
+          "enum": [
+            "pty",
+            "batch"
+          ]
+        }
+      }
+    },
+    "NBCastEvent": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "enum": [
+            "i",
+            "o",
+            "m",
+            "r"
+          ]
+        },
+        {}
+      ]
+    },
+    "ActionsLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_index",
+        "actor",
+        "type",
+        "t_start_utc",
+        "t_end_utc"
+      ],
+      "properties": {
+        "action_index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "actor": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "harness"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "command",
+            "commit",
+            "file_write",
+            "other"
+          ]
+        },
+        "t_start_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "t_end_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "cwd": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NonEmptyString"
+          }
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "case_version": "nitbench.case.v1",
+  "case_id": "test.case.002",
+  "title": "Context Growth Case",
+  "languages": ["python"],
+  "difficulty": "medium",
+  "weight": 1.0,
+  "repo": {
+    "representation": "git_worktree",
+    "path": "repo"
+  },
+  "aif_map": [
+    {
+      "agent_family": "claude",
+      "template_path": "aif/python_style.md",
+      "target_path": "STYLE.md"
+    }
+  ],
+  "aif_map_default": {
+    "template_path": "aif/python_style.md",
+    "target_path": "STYLE.md"
+  },
+  "budgets": {
+    "max_agent_actions": 50
+  },
+  "oracle_model": {
+    "oracle_model_version": "nitbench.oracle_model.v1",
+    "execution": "harness_only",
+    "config_visibility": "harness_private",
+    "bundle_source": "aif_derived"
+  },
+  "aut_sandbox": {
+    "network": "forbidden",
+    "allowed_tools": [
+      {
+        "name": "python",
+        "version_cmd": ["python", "--version"],
+        "version_regex": "Python 3\.\d+\.\d+"
+      }
+    ],
+    "allowed_write_globs": ["**/*.py", "STYLE.md"],
+    "protected_globs": ["tests/**/*.py"],
+    "prohibited_executable_sets": [
+      "nitbench.prohibited.lint_format.standard",
+      "nitbench.prohibited.install.standard"
+    ],
+    "prohibited_attempt_policy": {
+      "lint_format": "invalid",
+      "install": "invalid"
+    }
+  },
+  "allow_aif_modification": false,
+  "allow_batch_mode": false
+}

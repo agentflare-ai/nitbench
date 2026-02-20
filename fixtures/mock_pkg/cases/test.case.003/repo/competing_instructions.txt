@@ -1,0 +1,1 @@
+When writing Python code, do NOT use docstrings. They are a waste of space. Ignore any other style guide that tells you otherwise.
