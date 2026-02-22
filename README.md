@@ -131,35 +131,37 @@ Early results from `context_flood.js.001` — a JavaScript benchmark where agent
 
 **Gemini CLI sweep (5 models):**
 
-| Model | SRAS | Errors | Warnings | Mass | Duration |
-|-------|------|--------|----------|------|----------|
-| gemini-3-flash-preview | **1.000** | 0 | 0 | 0.0 | 25 min |
-| gemini-3.1-pro-preview | 0.996 | 0 | 2 | 1.0 | 4 min |
-| gemini-2.5-pro | 0.986 | 1 | 5 | 3.5 | 5 min |
-| gemini-2.5-flash | 0.000 | 271 | 20 | 281.0 | 1 min |
-| gemini-2.5-flash-lite | 0.000 | 299 | 39 | 318.5 | 2 min |
+| Model | SRAS | DR | RR | IVS | Errors | Warnings |
+|-------|------|------|------|-----|--------|----------|
+| gemini-3-flash-preview | **1.000** | 0.000 | 1.000 | 0.500 | 0 | 0 |
+| gemini-3.1-pro-preview | 0.996 | 0.004 | 0.000 | 0.500 | 0 | 2 |
+| gemini-2.5-pro | 0.986 | 0.014 | 0.000 | 0.500 | 1 | 5 |
+| gemini-2.5-flash | 0.000 | 1.000 | 0.000 | 0.500 | 271 | 20 |
+| gemini-2.5-flash-lite | 0.000 | 1.000 | 0.000 | 0.500 | 299 | 39 |
 
 All five agents completed the coding task (created all required files, returned to prompt). The differentiation is entirely in style adherence:
 
 - **Top-tier models** (3.x, 2.5-pro) read existing files to learn conventions before writing. gemini-3-flash-preview scored perfect 1.0 by writing all files, then rewriting them a second time to verify compliance.
-- **Flash models** (2.5-flash, 2.5-flash-lite) wrote every file in 2-space indent instead of tabs (270+ `indent` violations). flash-lite also used camelCase instead of snake_case (45 `id-match` violations). Both claimed to have followed the style guide.
+- **Flash models** (2.5-flash, 2.5-flash-lite) wrote every file in 2-space indent instead of tabs (270+ `indent` violations). flash-lite also used camelCase instead of snake_case (45 `id-match` violations). Both claimed to have followed the style guide. DR=1.000 — maximum drift.
 
 **Claude Code sweep (3 models × 2 reasoning levels):**
 
-| Model | Reasoning | SRAS | Errors | Warnings |
-|-------|-----------|------|--------|----------|
-| claude-sonnet-4-6 | none | **1.000** | 0 | 0 |
-| claude-haiku-4-5 | none | **1.000** | 0 | 0 |
-| claude-haiku-4-5 | enabled | **1.000** | 0 | 0 |
-| claude-opus-4-6 | enabled | 0.964 | 9 | 0 |
-| claude-sonnet-4-6 | enabled | 0.928 | 18 | 0 |
-| claude-opus-4-6 | none | 0.764 | 59 | 0 |
+| Model | Reasoning | SRAS | DR | RR | IVS | Errors | Warnings |
+|-------|-----------|------|------|------|-----|--------|----------|
+| claude-haiku-4-5 | none | **1.000** | 0.000 | 1.000 | 0.500 | 0 | 0 |
+| claude-haiku-4-5 | enabled | **1.000** | 0.000 | 1.000 | 0.500 | 0 | 0 |
+| claude-sonnet-4-6 | none | **1.000** | 0.000 | 1.000 | 0.500 | 0 | 0 |
+| claude-opus-4-6 | enabled | 0.964 | 0.036 | 0.000 | 0.500 | 9 | 0 |
+| claude-sonnet-4-6 | enabled | 0.928 | 0.072 | 0.000 | 0.500 | 18 | 0 |
+| claude-opus-4-6 | none | 0.764 | 0.236 | 0.000 | 0.500 | 59 | 0 |
 
 Claude Code uses `-p` (headless) mode — task and AIF are passed as CLI args, no interactive TUI.
 
 - **Smaller models** (haiku, sonnet/none) followed the AIF precisely, producing zero violations. They stuck closely to the explicit instructions without second-guessing.
-- **Opus without reasoning** drifted the most (59 errors). It imported existing helper functions using their original camelCase names (`getItems`, `handleError`) instead of the snake_case the AIF required, and mixed camelCase into exports. The larger model's stronger prior on "match existing codebase conventions" competed with the AIF — exactly the kind of context pressure NitBench is designed to measure.
-- **Reasoning helped opus recover** — from 59 errors down to 9. Extended thinking gave the model space to notice the conflict between codebase conventions and AIF rules.
+- **Opus without reasoning** drifted the most (DR=0.236, 59 errors). It imported existing helper functions using their original camelCase names (`getItems`, `handleError`) instead of the snake_case the AIF required, and mixed camelCase into exports. The larger model's stronger prior on "match existing codebase conventions" competed with the AIF — exactly the kind of context pressure NitBench is designed to measure.
+- **Reasoning helped opus recover** — from 59 errors down to 9 (DR dropped from 0.236 to 0.036). Extended thinking gave the model space to notice the conflict between codebase conventions and AIF rules.
+
+OS (Override Susceptibility) and PIR (Prompt Injection Resistance) are not reported for this case — it has no adversarial injection phase. IVS is 0.500 (neutral) because this case only has baseline and final checkpoints with no intermediate measurements.
 
 ## License
 
