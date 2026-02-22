@@ -59,6 +59,15 @@ class ClaudeAdapter(AgentAdapter):
             cmd.extend(["--thinking", reasoning_level])
         return cmd
 
+    def aif_read_pattern(self, aif_filename: str) -> Optional[re.Pattern]:
+        # Claude -p (headless) mode doesn't stream tool calls — count will be 0.
+        # In interactive TUI mode the format is:
+        #   ● Read(CLAUDE.md)                         (collapsed)
+        #   ● Read(file_path: "/abs/path/CLAUDE.md")  (verbose)
+        # Return the pattern so it works if Claude is ever run interactively.
+        esc = re.escape(aif_filename)
+        return re.compile(rf'Read\([^)]*{esc}')
+
     def build_agent_profile(self, model: str = "claude-sonnet-4-6", reasoning_level: str = "none") -> dict:
         return {
             "agent_family": "claude",

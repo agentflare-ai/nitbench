@@ -307,7 +307,7 @@ def test_runner_codex_agent(mock_package_dir, tmp_path):
     ]
 
     from nitbench.agents.codex import CodexAdapter
-    mock_cmd = ["bash", "-c", "printf 'Type your message'; read line; echo done; exit 0"]
+    mock_cmd = ["bash", "-c", "echo done; exit 0"]
 
     with patch.object(sys, "argv", test_args), \
          patch.object(CodexAdapter, 'aut_command_for', return_value=mock_cmd):

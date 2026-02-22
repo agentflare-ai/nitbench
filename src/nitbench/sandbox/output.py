@@ -23,7 +23,8 @@ def finalize_run(
     repo_initial_sha256: str,
     aif_sha256: str,
     task_md_sha256: str,
-    start_time_utc: str = None
+    start_time_utc: str = None,
+    aif_read_count: int = 0,
 ) -> Path:
     """
     Finalizes the NitBench case run, determining validity and writing the final output structure.
@@ -110,7 +111,8 @@ def finalize_run(
         "toolchain": {
             "os": platform.system().lower(),
             "arch": platform.machine().lower(),
-            "git_version": git_version
+            "git_version": git_version,
+            "aif_read_count": aif_read_count,
         },
         "checkpoints": metrics_data["checkpoints"],
         "metrics": metrics_data["metrics"],

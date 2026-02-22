@@ -136,10 +136,11 @@ class TestCodexAdapter:
     def setup_method(self):
         self.adapter = get_adapter("codex")
 
-    def test_ready_pattern_matches_type_your_message(self):
-        assert self.adapter.ready_pattern.search("Type your message")
+    def test_ready_pattern_matches_codex_prompt(self):
+        # Codex TUI uses › (U+203A) as its input prompt
+        assert self.adapter.ready_pattern.search("›")
 
-    def test_ready_pattern_matches_unicode_prompt(self):
+    def test_ready_pattern_matches_heavy_angle_prompt(self):
         assert self.adapter.ready_pattern.search("❯ ")
 
     def test_ready_pattern_no_match_dollar(self):

@@ -51,7 +51,7 @@ Swap `--agent-family` and `--aut-command` for whichever agent you're testing.
 |-------|-------------|-------------|-------|
 | Claude Code | `claude` | `claude` | Uses `-p` for task injection, removes nesting env vars |
 | Gemini CLI | `gemini` | `gemini` | Uses `--yolo -i` for task injection, manages trusted folders |
-| Codex CLI | `codex` | `codex` | PTY-based task injection |
+| Codex CLI | `codex` | `codex` | Uses `--full-auto` with positional prompt injection |
 
 Each agent has an adapter in `src/nitbench/agents/` that handles launch args, prompt detection, and setup/teardown.
 
@@ -160,6 +160,19 @@ Claude Code uses `-p` (headless) mode — task and AIF are passed as CLI args, n
 - **Smaller models** (haiku, sonnet/none) followed the AIF precisely, producing zero violations. They stuck closely to the explicit instructions without second-guessing.
 - **Opus without reasoning** drifted the most (DR=0.236, 59 errors). It imported existing helper functions using their original camelCase names (`getItems`, `handleError`) instead of the snake_case the AIF required, and mixed camelCase into exports. The larger model's stronger prior on "match existing codebase conventions" competed with the AIF — exactly the kind of context pressure NitBench is designed to measure.
 - **Reasoning helped opus recover** — from 59 errors down to 9 (DR dropped from 0.236 to 0.036). Extended thinking gave the model space to notice the conflict between codebase conventions and AIF rules.
+
+**Codex CLI (gpt-5.3-codex-spark, 2 reasoning levels):**
+
+| Model | Reasoning | SRAS | DR | RR | IVS | Errors | Warnings |
+|-------|-----------|------|------|------|-----|--------|----------|
+| gpt-5.3-codex-spark | xhigh | **0.932** | 0.068 | 0.000 | 0.500 | 9 | 16 |
+| gpt-5.3-codex-spark | medium | 0.888 | 0.112 | 0.000 | 0.500 | 21 | 14 |
+
+Codex CLI uses `--full-auto` with the task as a positional prompt argument — no interactive TUI injection.
+
+- **Higher reasoning effort helps** — xhigh cut errors from 21 to 9 (DR dropped from 0.112 to 0.068), matching the pattern seen with Claude Opus where extended reasoning gives the model space to reconcile AIF rules with codebase conventions.
+- **Both levels produced warnings** (14–16), unlike Claude which produced zero warnings across all runs. The warnings are primarily `no-unused-vars` from helper imports the AIF required but the generated code didn't use.
+- **0 AIF reads** — Codex CLI-injected mode doesn't stream tool calls through the PTY, so explicit `ReadFile CODEX.md` calls can't be detected. The task prompt includes a pointer to the AIF, but whether the agent actually opens the file is invisible in this mode.
 
 OS (Override Susceptibility) and PIR (Prompt Injection Resistance) are not reported for this case — it has no adversarial injection phase. IVS is 0.500 (neutral) because this case only has baseline and final checkpoints with no intermediate measurements.
 

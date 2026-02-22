@@ -164,6 +164,8 @@ class InteractivePtyHarness:
         self._cli_injected = False  # True when task was injected via CLI args (not PTY)
         self.detected_model_id: Optional[str] = None
         self.agent_done = False
+        self.aif_read_count: int = 0
+        self._aif_pattern: Optional[re.Pattern] = None
 
         # Universal VT100 screen renderer — all adapters use it
         self._renderer = agent_adapter.create_renderer() if agent_adapter else None
@@ -183,6 +185,9 @@ class InteractivePtyHarness:
         # CLI-based task injection: append adapter args to the command
         if self.agent_adapter is not None and self.task_text is not None:
             aif_target = self._detect_aif_target()
+            # Compile AIF read-detection pattern for this adapter
+            if aif_target:
+                self._aif_pattern = self.agent_adapter.aif_read_pattern(Path(aif_target).name)
             cli_args = self.agent_adapter.task_cli_args(self.task_text, aif_target)
             if cli_args is not None:
                 full_cmd = full_cmd + cli_args
@@ -247,10 +252,12 @@ class InteractivePtyHarness:
                     elif time.monotonic() - done_since > self.DONE_IDLE_TIMEOUT:
                         self._terminate(child)
                         break
-                # Idle timeout: no output for too long after PTY task injection.
-                # Skip for CLI-injected agents (e.g. -p mode) — they may produce
-                # no TUI output while working; just wait for process exit (EOF).
-                elif self._task_injected and not self._cli_injected and self.agent_adapter is not None:
+                # Idle timeout: no output for too long after task injection.
+                # Applies to both PTY-injected and CLI-injected agents.
+                # Headless agents (e.g. Claude -p) exit via EOF before this fires.
+                # TUI agents (e.g. Codex --full-auto) may sit at their prompt
+                # after completion, producing only cursor blink noise.
+                elif self._task_injected and self.agent_adapter is not None:
                     idle_elapsed = time.monotonic() - last_output_time
                     if idle_elapsed > self.agent_adapter.idle_timeout:
                         # Log screen state for diagnostics before terminating
@@ -261,7 +268,10 @@ class InteractivePtyHarness:
                                 "idle_seconds": round(idle_elapsed, 1),
                                 "screen_state": screen_state,
                             })
-                        self.run_validator.invalid_reasons.append("agent_idle_timeout")
+                        # CLI-injected TUI agents (e.g. Codex) idle-out after
+                        # completing work — this is expected, not an error.
+                        if not self._cli_injected:
+                            self.run_validator.invalid_reasons.append("agent_idle_timeout")
                         self._terminate(child)
                         break
                 continue
@@ -278,6 +288,14 @@ class InteractivePtyHarness:
             # Log raw output bytes
             text = chunk.decode("utf-8", errors="replace")
             self.logger.log_output(text)
+
+            # AIF read detection: scan new output chunk for file-read tool calls
+            if self._aif_pattern is not None and self._aif_pattern.search(text):
+                self.aif_read_count += 1
+                self.logger.log_marker({
+                    "type": "aif_read",
+                    "aif_read_count": self.aif_read_count,
+                })
 
             # Feed output to renderer (stateful — accumulates all output)
             if self._renderer is not None:

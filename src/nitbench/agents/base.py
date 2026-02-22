@@ -135,6 +135,14 @@ class AgentAdapter(ABC):
         """
         return list(self.default_aut_command)
 
+    def aif_read_pattern(self, aif_filename: str) -> Optional[re.Pattern]:
+        """Return a regex that matches this agent's tool-use output when reading *aif_filename*.
+
+        Override in subclasses.  Returns ``None`` (default) when detection is
+        not possible (e.g. CLI-injected agents that don't stream tool calls).
+        """
+        return None
+
     def parse_model_from_output(self, output: str) -> Optional[str]:
         """Extract the model identifier from *output*, or ``None``.
 

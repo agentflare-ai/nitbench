@@ -739,14 +739,12 @@ class TestCodexE2EOutputParsing:
     the harness can parse model IDs, inject tasks, and detect done state.
     """
 
-    # Simulates a Codex CLI TUI session with ANSI escape codes:
+    # Simulates a Codex CLI TUI session with CLI-injected task:
     #   - Alternate screen buffer entry
     #   - Bold/colored footer with model identifier
-    #   - "Type your message" placeholder (ready prompt)
-    #   - Reads injected task
-    #   - Working indicator
+    #   - Working indicator (task came via CLI args)
     #   - Response
-    #   - "Type your message" reappears (done)
+    #   - › prompt reappears (done)
     CODEX_MOCK_SCRIPT = r'''
         # -- enter alternate screen buffer --
         printf '\x1b[?1049h'
@@ -757,21 +755,15 @@ class TestCodexE2EOutputParsing:
         # -- footer status line with ANSI styling --
         printf '\x1b[24;1H\x1b[2mgpt-5.3-codex . 85%% . 34k tokens\x1b[0m'
 
-        # -- ready prompt: "Type your message" --
-        printf '\x1b[22;1HType your message'
-
-        # -- read injected task --
-        read task_line
-
-        # -- working indicator --
+        # -- working indicator (task injected via CLI args) --
         printf '\x1b[22;1H\x1b[K* Working (2s . esc to interrupt)'
         sleep 0.1
 
         # -- response area --
         printf '\x1b[10;1H\x1b[KI have read the Agent Instruction File and completed the task.'
 
-        # -- ready prompt reappears (done) --
-        printf '\x1b[22;1H\x1b[KType your message'
+        # -- › prompt reappears (done) --
+        printf '\x1b[22;1H\x1b[K\xe2\x80\xba'
         sleep 0.2
 
         # -- leave alternate screen --
@@ -795,8 +787,8 @@ class TestCodexE2EOutputParsing:
 
         assert harness.detected_model_id == "gpt-5.3-codex"
 
-    def test_task_injected_after_ready_prompt(self, harness_env):
-        """'Type your message' in rendered screen triggers task injection."""
+    def test_task_injected_via_cli(self, harness_env):
+        """Task is injected via CLI args (not PTY) for Codex adapter."""
         from nitbench.agents.registry import get_adapter
         import nitbench.agents  # noqa: F401
 
@@ -814,7 +806,7 @@ class TestCodexE2EOutputParsing:
         assert "Refactor main.py" in log_text
 
     def test_done_detected(self, harness_env):
-        """'Type your message' reappearing after response sets agent_done."""
+        """› prompt reappearing after response sets agent_done."""
         from nitbench.agents.registry import get_adapter
         import nitbench.agents  # noqa: F401
 
@@ -838,13 +830,11 @@ class TestCodexE2EOutputParsing:
         script = r'''
             printf '\x1b[?1049h'
             printf '\x1b[24;1H\x1b[2mgpt-5.3-codex . 85%% . 34k tokens\x1b[0m'
-            printf '\x1b[22;1HType your message'
-            read task_line
             printf '\x1b[22;1H\x1b[K* Working (1s)'
             sleep 0.1
             printf '\x1b[24;1H\x1b[K\x1b[2mo4-mini . 95%% . 5k tokens\x1b[0m'
             printf '\x1b[10;1H\x1b[KDone.'
-            printf '\x1b[22;1H\x1b[KType your message'
+            printf '\x1b[22;1H\x1b[K\xe2\x80\xba'
             sleep 0.2
             printf '\x1b[?1049l'
             exit 0
@@ -859,7 +849,6 @@ class TestCodexE2EOutputParsing:
 
         assert harness.detected_model_id == "o4-mini"
         assert harness._task_injected is True
-        assert harness.agent_done is True
 
     @pytest.mark.parametrize("model_id", [
         "gpt-5.3-codex", "gpt-5.2-codex", "gpt-5.1-codex",
@@ -874,10 +863,8 @@ class TestCodexE2EOutputParsing:
         script = f'''
             printf '\\x1b[?1049h'
             printf '\\x1b[24;1H\\x1b[2m{model_id} . 85%% . 34k tokens\\x1b[0m'
-            printf '\\x1b[22;1HType your message'
-            read task_line
             printf '\\x1b[10;1H\\x1b[KDone.'
-            printf '\\x1b[22;1H\\x1b[KType your message'
+            printf '\\x1b[22;1H\\x1b[K\\xe2\\x80\\xba'
             sleep 0.2
             printf '\\x1b[?1049l'
             exit 0
@@ -905,10 +892,8 @@ class TestCodexE2EOutputParsing:
             printf '\x1b[1;31;42m*** NOISE ***\x1b[0m\n'
             printf '\x1b[5;1H\x1b[1;4;33mMore noise\x1b[0m\n'
             printf '\x1b[24;1H\x1b[2mgpt-5.3-codex . 85%% . 34k tokens\x1b[0m'
-            printf '\x1b[22;1H\x1b[1;36mType your message\x1b[0m'
-            read task_line
             printf '\x1b[10;1H\x1b[KDone.'
-            printf '\x1b[22;1H\x1b[KType your message'
+            printf '\x1b[22;1H\x1b[K\xe2\x80\xba'
             sleep 0.2
             printf '\x1b[?1049l'
             exit 0

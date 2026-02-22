@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 from typing import Optional
 
+
+
 from nitbench.agents.base import AgentAdapter
 from nitbench.agents.registry import register
 
@@ -67,6 +69,14 @@ class GeminiAdapter(AgentAdapter):
 
     def aut_command_for(self, model: str, reasoning_level: str) -> list[str]:
         return ["gemini", "-m", model]
+
+    def aif_read_pattern(self, aif_filename: str) -> Optional[re.Pattern]:
+        # Gemini TUI renders tool calls as:
+        #   ⊶  ReadFile path/to/file     (in-progress)
+        #   ✓  ReadFile path/to/file     (completed)
+        # Also catches ReadManyFiles which can batch-read the AIF.
+        esc = re.escape(aif_filename)
+        return re.compile(rf'ReadFile\s+\S*{esc}\b|ReadManyFiles\s+\S*{esc}\b')
 
     def build_agent_profile(self, model: str = "gemini-2.5-pro", reasoning_level: str = "none") -> dict:
         return {

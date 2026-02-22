@@ -169,7 +169,8 @@ def run_single(
         repo_initial_sha256,
         aif_hash,
         task_md_sha256,
-        start_time_utc=run_start_time
+        start_time_utc=run_start_time,
+        aif_read_count=pty_harness.aif_read_count,
     )
 
     pkg_tar = output_dir / f"{case_id}.run.tar.gz"
