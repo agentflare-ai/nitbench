@@ -4,6 +4,16 @@ Benchmark harness for evaluating how well LLM coding agents follow explicit inst
 
 Most coding benchmarks measure whether an agent can *solve* a problem. NitBench measures whether it can solve a problem **while following the rules you gave it**. The test is simple: drop the agent into a large codebase with strong conventions, hand it a style guide that contradicts those conventions, and ask it to write new code. Then lint the output and count the violations.
 
+## Why linters?
+
+NitBench uses linters and formatters (ESLint, Ruff, etc.) as **measurement instruments**, not as tools available to the agent. This is a deliberate design constraint from the [spec](docs/spec.md):
+
+- The harness runs all linters **outside** the agent's sandbox, against frozen checkpoint snapshots. The agent never sees linter output, config files, or violation counts during the run (spec §8.1).
+- The agent is **prohibited** from running lint/format tools or installing them. If it tries, the run is either recorded or invalidated depending on case policy (spec §9).
+- Every linter rule enforced by scoring must map to an explicit rule in the Agent Instruction File (AIF) that the agent was told to follow (spec §8.4). The agent's only contract is the AIF — a plain Markdown style guide.
+
+This separation is what makes the benchmark meaningful. If the agent could run `eslint --fix`, it would just auto-correct everything and the test would measure nothing. Instead, the agent has to **read the style guide, internalize the rules, and write compliant code from memory** while a large surrounding codebase pressures it toward different conventions. The harness then objectively counts how many rules it broke.
+
 ## How it works
 
 NitBench runs in seven phases:
@@ -16,7 +26,7 @@ NitBench runs in seven phases:
 6. **Run oracles** (linters, formatters) against each checkpoint — the agent never sees these
 7. **Score** the results and write `run.json`
 
-The agent runs in a sandbox with restricted file access and no network. All measurement happens outside the agent's environment so it can't game the results.
+The agent runs in a sandbox with restricted file access and no network. All measurement happens outside the agent's environment so it can't game the results. The agent is prohibited from running linters or formatters — it must follow the style guide by reading it, not by auto-fixing.
 
 ## Quick start
 
