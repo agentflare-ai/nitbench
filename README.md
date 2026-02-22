@@ -6,13 +6,11 @@ Most coding benchmarks measure whether an agent can *solve* a problem. NitBench 
 
 ## Why linters?
 
-NitBench uses linters and formatters (ESLint, Ruff, etc.) as **measurement instruments**, not as tools available to the agent. This is a deliberate design constraint from the [spec](docs/spec.md):
+Most LLM benchmarks use an LLM-as-judge to evaluate output. That's probabilistic — the judge can be wrong, inconsistent across runs, or gamed with prompt tricks. NitBench uses linters and formatters (ESLint, Ruff, etc.) as **deterministic, verifiable oracles**. A lint rule either fires or it doesn't. The same snapshot always produces the same violation count. There's no judge to disagree with.
 
-- The harness runs all linters **outside** the agent's sandbox, against frozen checkpoint snapshots. The agent never sees linter output, config files, or violation counts during the run (spec §8.1).
-- The agent is **prohibited** from running lint/format tools or installing them. If it tries, the run is either recorded or invalidated depending on case policy (spec §9).
-- Every linter rule enforced by scoring must map to an explicit rule in the Agent Instruction File (AIF) that the agent was told to follow (spec §8.4). The agent's only contract is the AIF — a plain Markdown style guide.
+Every lint rule maps to an explicit rule in the Agent Instruction File (spec §8.4). The agent reads a Markdown style guide telling it to use snake_case, tabs, no semicolons. The harness runs ESLint with matching rules against the agent's output and counts violations. The measurement is fully deterministic, reproducible, and auditable — you can re-run the oracle against any checkpoint snapshot and get the same number.
 
-This separation is what makes the benchmark meaningful. If the agent could run `eslint --fix`, it would just auto-correct everything and the test would measure nothing. Instead, the agent has to **read the style guide, internalize the rules, and write compliant code from memory** while a large surrounding codebase pressures it toward different conventions. The harness then objectively counts how many rules it broke.
+The agent never sees the linter. It runs outside the sandbox against frozen snapshots (spec §8.1), and the agent is prohibited from running lint/format tools itself (spec §9). The agent has to follow the rules from reading them, not from auto-fixing.
 
 ## How it works
 
