@@ -4,13 +4,15 @@ Benchmark harness for evaluating how well LLM coding agents follow explicit inst
 
 Most coding benchmarks measure whether an agent can *solve* a problem. NitBench measures whether it can solve a problem **while following the rules you gave it**. The test is simple: drop the agent into a large codebase with strong conventions, hand it a style guide that contradicts those conventions, and ask it to write new code. Then lint the output and count the violations.
 
-## Why linters?
+## Why style rules?
 
-Most LLM benchmarks use an LLM-as-judge to evaluate output. That's probabilistic — the judge can be wrong, inconsistent across runs, or gamed with prompt tricks. NitBench uses linters and formatters (ESLint, Ruff, etc.) as **deterministic, verifiable oracles**. A lint rule either fires or it doesn't. The same snapshot always produces the same violation count. There's no judge to disagree with.
+NitBench isn't really about style. It's about **instruction drift** — whether an agent keeps following the rules it was given as context grows and competing patterns accumulate.
 
-Every lint rule maps to an explicit rule in the Agent Instruction File (spec §8.4). The agent reads a Markdown style guide telling it to use snake_case, tabs, no semicolons. The harness runs ESLint with matching rules against the agent's output and counts violations. The measurement is fully deterministic, reproducible, and auditable — you can re-run the oracle against any checkpoint snapshot and get the same number.
+Style and formatting rules are the measurement vehicle because they have a unique property: they can be checked deterministically with linters. Most LLM benchmarks use an LLM-as-judge, which is probabilistic — the judge can be wrong, inconsistent, or gamed. A lint rule either fires or it doesn't. Same snapshot, same count, every time.
 
-The agent never sees the linter. It runs outside the sandbox against frozen snapshots (spec §8.1), and the agent is prohibited from running lint/format tools itself (spec §9). The agent has to follow the rules from reading them, not from auto-fixing.
+The assumption is straightforward: if an agent can't follow simple, explicit formatting rules when a large codebase is pushing it toward different conventions, it won't reliably follow more complex rules either — security policies, architectural constraints, API contracts. Style drift is a measurable proxy for instruction adherence under context pressure.
+
+The agent never sees the linter. Oracles run outside the sandbox against frozen snapshots (spec §8.1), and the agent is prohibited from running lint/format tools itself (spec §9). Every lint rule maps to an explicit rule in the Agent Instruction File the agent was told to follow (spec §8.4). The agent has to follow the rules from reading them, not from auto-fixing.
 
 ## How it works
 
