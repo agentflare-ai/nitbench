@@ -71,6 +71,19 @@ class RunValidator:
         if current_hash != initial_hash and not allow_mod:
             self.invalid_reasons.append("aif_modified")
 
+    def check_oracle_bundle_lineage(self, manifest_path: Path, aif_hash: str) -> None:
+        """Verifies the oracle bundle is derived from the placed AIF."""
+        if not manifest_path.exists():
+            self.invalid_reasons.append("case_invalid:oracle_not_aif_derived")
+            return
+            
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if data.get("aif_sha256") != aif_hash:
+                self.invalid_reasons.append("case_invalid:oracle_not_aif_derived")
+        except Exception:
+            self.invalid_reasons.append("case_invalid:oracle_not_aif_derived")
+
     @property
     def is_run_valid(self) -> bool:
         return len(self.invalid_reasons) == 0

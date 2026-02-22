@@ -1,0 +1,45 @@
+scoring_version: nitbench.scoring.v1
+case_id: context_flood.js.001
+oracle_bundle:
+  bundle_type: aif_derived_opaque
+  generator_id: eslint_context_flood
+  generator_version: 1.0.0
+  manifest_version: nitbench.oracle_manifest.v1
+normalization:
+  violation_budget: 250
+severity_weights:
+  error: 1.0
+  warning: 0.5
+  info: 0.1
+category_weights:
+  format: 1.0
+  lint: 1.0
+  naming: 1.0
+  convention: 1.0
+oracle_weights:
+  oracle_eslint: 1.0
+oracles:
+  - id: oracle_eslint
+    exec_context: harness
+    tool_id: eslint
+    repo_config_policy: ignore_repo_configs
+    category: lint
+    soft_rule: true
+    cwd: .
+    command: ["npx", "eslint", "app/controllers/analytics/", "app/routes/analytics.js"]
+    timeout_seconds: 60
+    mutates_snapshot: false
+    aif_rule_refs:
+      - SNAKE_CASE_VARS
+      - TAB_INDENT
+      - NO_SEMICOLONS
+      - SINGLE_QUOTES
+      - SHORT_LINES
+    expected_exit_codes:
+      ok: [0]
+      violations: [1]
+      tool_error: [2]
+    counting:
+      mode: regex
+      regex_error: "^\\s+\\d+:\\d+\\s+error"
+      regex_warning: "^\\s+\\d+:\\d+\\s+warning"

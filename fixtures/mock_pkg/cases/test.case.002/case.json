@@ -14,6 +14,16 @@
       "agent_family": "claude",
       "template_path": "aif/python_style.md",
       "target_path": "STYLE.md"
+    },
+    {
+      "agent_family": "gemini",
+      "template_path": "aif/gemini_python_style.md",
+      "target_path": "GEMINI.md"
+    },
+    {
+      "agent_family": "codex",
+      "template_path": "aif/codex_python_style.md",
+      "target_path": "CODEX.md"
     }
   ],
   "aif_map_default": {
@@ -35,7 +45,7 @@
       {
         "name": "python",
         "version_cmd": ["python", "--version"],
-        "version_regex": "Python 3\.\d+\.\d+"
+        "version_regex": "Python 3\\.\\d+\\.\\d+"
       }
     ],
     "allowed_write_globs": ["**/*.py", "STYLE.md"],

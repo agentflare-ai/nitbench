@@ -31,7 +31,7 @@ def mock_package_dir(tmp_path):
     (case_dir / "task.md").write_text("# Task")
     
     (case_dir / "aif").mkdir()
-    (case_dir / "aif" / "template.md").write_text("<!-- NITBENCH_RULE:TEST_RULE -->")
+    (case_dir / "aif" / "template.md").write_text("<!-- NBR:TEST_ORACLE_RULE -->")
     
     (case_dir / "repo").mkdir()
     (case_dir / "repo" / "main.py").write_text("print('hello')")
@@ -161,6 +161,7 @@ def mock_package_dir(tmp_path):
                 "command": ["echo", "test"],
                 "timeout_seconds": 30,
                 "mutates_snapshot": False,
+                "aif_rule_refs": ["TEST_ORACLE_RULE"],
                 "expected_exit_codes": {
                     "ok": [0],
                     "violations": [1]
@@ -178,39 +179,154 @@ def mock_package_dir(tmp_path):
 
 def test_runner_main(mock_package_dir, tmp_path):
     output_dir = tmp_path / "output"
-    
+
     test_args = [
         "runner.py",
         "--package-dir", str(mock_package_dir),
         "--case-id", "test.case.001",
         "--agent-family", "claude",
-        "--output-dir", str(output_dir)
+        "--output-dir", str(output_dir),
     ]
-    
-    with patch.object(sys, 'argv', test_args):
+
+    from nitbench.agents.claude import ClaudeAdapter
+    mock_cmd = ["bash", "-c", "echo Agent attempting task...; exit 0"]
+
+    with patch.object(sys, 'argv', test_args), \
+         patch.object(ClaudeAdapter, 'aut_command_for', return_value=mock_cmd):
         main()
-        
+
     # Verify outputs
     assert output_dir.exists()
-    
+
     # Workspace should have CLAUDE.md placed inside repo
     assert (output_dir / "workspace" / "repo" / "CLAUDE.md").exists()
-    
-    # Harness Artifacts should have oracle_bundle, run_result.json, etc.
+
+    # Harness Artifacts should have oracle_bundle, run.json, etc.
     artifacts = output_dir / "harness_artifacts"
-    assert (artifacts / "oracle_bundle" / "manifest.json").exists()
-    assert (artifacts / "run_result" / "run_result.json").exists()
-    assert (artifacts / "run_result" / "checkpoints.json").exists()
-    assert (artifacts / "transcript.cast").exists()
-    
-    # Run result validity should be "case_valid" for the simulated happy path
-    with open(artifacts / "run_result" / "run_result.json", "r") as f:
+    assert (artifacts / "artifacts" / "oracle_bundle" / "manifest.json").exists()
+    assert (artifacts / "run.json").exists()
+    assert (artifacts / "artifacts" / "hashes.json").exists()
+    assert (artifacts / "transcript.log").exists()
+
+    # Run result validity should be True for the simulated happy path
+    with open(artifacts / "run.json", "r") as f:
         res = json.load(f)
-    assert res["run_validity"] == "case_valid"
-    
+    assert res["validity"]["run_valid"] is True
+
     # Deployable tarball should exist
     pkg_tar = output_dir / "test.case.001.run.tar.gz"
     assert pkg_tar.exists()
     with tarfile.open(pkg_tar, "r:gz") as tar:
         names = tar.getnames()
-        assert any(n.endswith("run_result.json") for n in names)
+        assert any(n.endswith("run.json") for n in names)
+
+
+def test_runner_gemini_agent(mock_package_dir, tmp_path):
+    """Full runner flow using --agent-family gemini with Gemini AIF fixtures."""
+    # Add gemini AIF entry to the existing mock package
+    case_dir = mock_package_dir / "cases" / "test.case.001"
+
+    # Create a gemini-specific AIF template
+    (case_dir / "aif" / "gemini_template.md").write_text(
+        "<!-- NBR:TEST_ORACLE_RULE -->"
+    )
+
+    # Update case.json to include a gemini aif_map entry
+    case_json_path = case_dir / "case.json"
+    case_data = json.loads(case_json_path.read_text())
+    case_data["aif_map"].append({
+        "agent_family": "gemini",
+        "template_path": "aif/gemini_template.md",
+        "target_path": "GEMINI.md",
+    })
+    case_json_path.write_text(json.dumps(case_data))
+
+    output_dir = tmp_path / "output_gemini"
+
+    test_args = [
+        "runner.py",
+        "--package-dir", str(mock_package_dir),
+        "--case-id", "test.case.001",
+        "--agent-family", "gemini",
+        "--output-dir", str(output_dir),
+    ]
+
+    from nitbench.agents.gemini import GeminiAdapter
+    mock_cmd = ["bash", "-c", "echo done; exit 0"]
+
+    with patch.object(sys, "argv", test_args), \
+         patch.object(GeminiAdapter, 'aut_command_for', return_value=mock_cmd):
+        main()
+
+    # Verify outputs
+    assert output_dir.exists()
+
+    # GEMINI.md should be placed in the workspace repo
+    assert (output_dir / "workspace" / "repo" / "GEMINI.md").exists()
+
+    # run.json should exist and record gemini agent family
+    artifacts = output_dir / "harness_artifacts"
+    assert (artifacts / "run.json").exists()
+    with open(artifacts / "run.json", "r") as f:
+        res = json.load(f)
+    assert res["agent_profile"]["agent_family"] == "gemini"
+    assert res["agent_profile"]["model_id"] == "gemini-3.1-pro-preview"
+
+    # Deployable tarball should exist
+    pkg_tar = output_dir / "test.case.001.run.tar.gz"
+    assert pkg_tar.exists()
+
+
+def test_runner_codex_agent(mock_package_dir, tmp_path):
+    """Full runner flow using --agent-family codex with Codex AIF fixtures."""
+    case_dir = mock_package_dir / "cases" / "test.case.001"
+
+    # Create a codex-specific AIF template
+    (case_dir / "aif" / "codex_template.md").write_text(
+        "<!-- NBR:TEST_ORACLE_RULE -->"
+    )
+
+    # Update case.json to include a codex aif_map entry
+    case_json_path = case_dir / "case.json"
+    case_data = json.loads(case_json_path.read_text())
+    case_data["aif_map"].append({
+        "agent_family": "codex",
+        "template_path": "aif/codex_template.md",
+        "target_path": "CODEX.md",
+    })
+    case_json_path.write_text(json.dumps(case_data))
+
+    output_dir = tmp_path / "output_codex"
+
+    test_args = [
+        "runner.py",
+        "--package-dir", str(mock_package_dir),
+        "--case-id", "test.case.001",
+        "--agent-family", "codex",
+        "--output-dir", str(output_dir),
+    ]
+
+    from nitbench.agents.codex import CodexAdapter
+    mock_cmd = ["bash", "-c", "printf 'Type your message'; read line; echo done; exit 0"]
+
+    with patch.object(sys, "argv", test_args), \
+         patch.object(CodexAdapter, 'aut_command_for', return_value=mock_cmd):
+        main()
+
+    # Verify outputs
+    assert output_dir.exists()
+
+    # CODEX.md should be placed in the workspace repo
+    assert (output_dir / "workspace" / "repo" / "CODEX.md").exists()
+
+    # run.json should exist and record codex agent family
+    artifacts = output_dir / "harness_artifacts"
+    assert (artifacts / "run.json").exists()
+    with open(artifacts / "run.json", "r") as f:
+        res = json.load(f)
+    assert res["agent_profile"]["agent_family"] == "codex"
+    assert res["agent_profile"]["model_id"] == "gpt-5.3-codex"
+
+    # Deployable tarball should exist
+    pkg_tar = output_dir / "test.case.001.run.tar.gz"
+    assert pkg_tar.exists()

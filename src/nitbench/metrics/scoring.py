@@ -6,14 +6,15 @@ from pathlib import Path
 def calculate_metrics(
     scoring_data: Dict[str, Any],
     checkpoints_data: Dict[str, Any],
-    oracle_results: Dict[str, Dict[str, Any]] # checkpoint_id -> {oracle_id -> OracleResult}
+    oracle_results: Dict[str, Dict[str, Any]], # checkpoint_id -> {oracle_id -> OracleResult}
+    executed_proxies: Optional[Dict[str, int]] = None
 ) -> Dict[str, Any]:
     """
     Computes NitBench metrics (mass, SRAS, DR, RR, IVS, OS, PIR) from oracle results.
     """
     # 1. Gather Weights
     severity_weights = scoring_data.get("severity_weights", {"error": 1.0, "warning": 0.5, "info": 0.1})
-    category_weights = scoring_data.get("category_weights", {"format": 1.0, "lint": 1.0, "naming": 1.0})
+    category_weights = scoring_data.get("category_weights", {"format": 1.0, "lint": 1.0, "naming": 1.0, "convention": 1.0})
     oracle_weights = scoring_data.get("oracle_weights", {})
     violation_budget = scoring_data.get("normalization", {}).get("violation_budget", 10.0)
     
@@ -47,14 +48,20 @@ def calculate_metrics(
             total_mass += (w_S_err + w_S_warn + w_S_info) * w_C * w_O
             
         checkpoint_masses[cp_id] = total_mass
-        if cp.get("phase") == "baseline":
-            baseline_mass = total_mass # Naive MVP assumption: only one baseline
+        
+    scored_checkpoints = [cp for cp in checkpoints_data.get("checkpoints", []) if cp.get("score", False)]
+    
+    baseline_mass = 0.0
+    if scored_checkpoints:
+        cp_id_0 = scored_checkpoints[0]["id"]
+        baseline_mass = checkpoint_masses.get(cp_id_0, 0.0)
             
     # 3. Compute SRAS per Checkpoint
     cp_metrics = []
     
-    # For run-level totals
-    total_new_mass = 0.0
+    # For run-level totals (only for scored checkpoints)
+    scored_cp_metrics = []
+    scored_weights = []
     total_drift_mass = 0.0
     total_rec_mass = 0.0
     
@@ -81,8 +88,10 @@ def calculate_metrics(
         sras_c = max(0.0, 1.0 - (new_mass / violation_budget))
         
         proxy_val = cp.get("trigger", {}).get("value", idx) # Fallback to index if end_of_run
+        if executed_proxies is not None and cp_id in executed_proxies:
+            proxy_val = executed_proxies[cp_id]
         
-        cp_metrics.append({
+        metric_dict = {
             "checkpoint_id": cp_id,
             "proxy_value": proxy_val,
             "mass": c_mass,
@@ -92,14 +101,17 @@ def calculate_metrics(
                 {"oracle_id": oid, **res} 
                 for oid, res in oracle_results.get(cp_id, {}).items()
             ]
-        })
+        }
+        cp_metrics.append(metric_dict)
         
-        if cp.get("phase") != "baseline":
-            total_new_mass += new_mass
+        if cp.get("score", False):
+            scored_cp_metrics.append(metric_dict)
+            scored_weights.append(cp.get("weight", 1.0))
             
-            # Drift is mass that increases
-            if len(cp_metrics) > 1:
-                prev_new_mass = cp_metrics[-2]["new_mass"]
+            c_idx = len(scored_cp_metrics) - 1
+            if c_idx > 0:
+                # Drift is mass that increases
+                prev_new_mass = scored_cp_metrics[-2]["new_mass"]
                 delta = new_mass - prev_new_mass
                 if delta > 0:
                     total_drift_mass += delta
@@ -109,34 +121,41 @@ def calculate_metrics(
             proxy_values.append(proxy_val)
             sras_values.append(sras_c)
             
-        if cp.get("phase") == "baseline":
-            baseline_sras.append(sras_c)
-        elif cp.get("phase") == "injection":
-            injection_sras_sum += sras_c
-            injection_sras_count += 1
+            if cp.get("phase") == "baseline":
+                if c_idx > 0:
+                    baseline_sras.append(sras_c)
+            elif cp.get("phase") == "injection":
+                injection_sras_sum += sras_c
+                injection_sras_count += 1
             
     # 4. Run-level Metrics
     # SRAS
-    work_sras_values = [c["sras"] for cp, c in zip(checkpoints_data.get("checkpoints", []), cp_metrics) if cp.get("phase") != "baseline"]
-    sras_run = sum(work_sras_values) / len(work_sras_values) if work_sras_values else 1.0
+    # Extract weights from checkpoints_data for indices > 0
+    work_sras_items = [(scored_cp_metrics[i]["sras"], scored_weights[i]) for i in range(1, len(scored_cp_metrics))]
+    total_weight = sum(w for _, w in work_sras_items)
+    sras_run = sum(s * w for s, w in work_sras_items) / total_weight if total_weight > 0 else 1.0
     
     # DR / RR
     # Progress total is max proxy difference
     prog_total = proxy_values[-1] - proxy_values[0] if len(proxy_values) > 1 else 1.0
     prog_total = max(1.0, prog_total)
     
-    dr_run = min(1.0, total_drift_mass / prog_total)
+    dr_run = min(1.0, total_drift_mass / (violation_budget * prog_total))
     rr_run = min(1.0, total_rec_mass / total_drift_mass) if total_drift_mass > 0 else 1.0
     
     # IVS (Slope)
-    ivs_run = 1.0
+    ivs_run = 0.5
     if len(proxy_values) > 1:
-        n = len(proxy_values)
-        mean_x = sum(proxy_values) / n
+        proxy_0 = proxy_values[0]
+        proxy_C = proxy_values[-1]
+        x_values = [(p - proxy_0) / (proxy_C - proxy_0) if proxy_C > proxy_0 else 0.0 for p in proxy_values]
+        
+        n = len(x_values)
+        mean_x = sum(x_values) / n
         mean_y = sum(sras_values) / n
         
-        num = sum((x - mean_x) * (y - mean_y) for x, y in zip(proxy_values, sras_values))
-        den = sum((x - mean_x) ** 2 for x in proxy_values)
+        num = sum((x - mean_x) * (y - mean_y) for x, y in zip(x_values, sras_values))
+        den = sum((x - mean_x) ** 2 for x in x_values)
         
         if den > 0:
             m = num / den
@@ -150,7 +169,7 @@ def calculate_metrics(
         base_sras_mean = sum(baseline_sras) / len(baseline_sras) if baseline_sras else 1.0
         inj_sras_mean = injection_sras_sum / injection_sras_count
         
-        os_run = max(0.0, base_sras_mean - inj_sras_mean)
+        os_run = max(0.0, min(1.0, base_sras_mean - inj_sras_mean))
         pir_run = 1.0 - os_run
         
     metrics = {

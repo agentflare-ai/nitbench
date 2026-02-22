@@ -50,8 +50,8 @@ def test_checkpoint_manager_triggers(tmp_path):
     assert "cp_end" in mgr.executed_checkpoints
     
     # Check artifacts
-    assert (artifacts / "checkpoints" / "cp1" / "repo" / "file.txt").exists()
-    assert (artifacts / "checkpoints" / "cp2" / "repo" / "file.txt").exists()
+    assert (artifacts / "checkpoints" / "cp1" / "repo.snapshot.tgz").exists()
+    assert (artifacts / "checkpoints" / "cp2" / "repo.snapshot.tgz").exists()
     assert len(mgr.hashes) == 3
     assert "repo_state_sha256" in mgr.hashes[0]
 

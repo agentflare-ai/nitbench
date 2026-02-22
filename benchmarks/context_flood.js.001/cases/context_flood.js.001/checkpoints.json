@@ -1,0 +1,35 @@
+{
+  "checkpoints_version": "nitbench.checkpoints.v1",
+  "case_id": "context_flood.js.001",
+  "context_proxy": {
+    "type": "diff_loc"
+  },
+  "checkpoints": [
+    {
+      "id": "cp_baseline",
+      "phase": "baseline",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 0
+      }
+    },
+    {
+      "id": "cp_mid",
+      "phase": "work",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 150
+      }
+    },
+    {
+      "id": "cp_final",
+      "phase": "final",
+      "score": true,
+      "trigger": {
+        "type": "end_of_run"
+      }
+    }
+  ]
+}

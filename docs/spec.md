@@ -147,7 +147,7 @@ Each case MUST be a directory `cases/<case_id>/` and MUST contain:
 * Any Soft Rule intended to be measured by scoring oracles MUST be labeled in the AIF with an **AIF Rule Marker**.
 * An AIF Rule Marker MUST be an HTML comment on its own line with format:
 
-  * `<!-- NITBENCH_RULE:<rule_id> -->`
+  * `<!-- NBR:<rule_id> -->`
 * `<rule_id>` MUST match regex `^[A-Z0-9][A-Z0-9._-]{0,63}$`.
 * AIF Rule Markers MUST be unique within the AIF.
 
@@ -870,7 +870,9 @@ All referenced schemas MUST be interpreted using JSON Schema Draft 2020-12 seman
             "tool_error": { "type": "array", "items": { "type": "integer" } }
           }
         },
-        "counting": { "$ref": "#/$defs/Counting" }
+        "counting": { "$ref": "#/$defs/Counting" },
+        "aif_rule_refs": { "type": "array", "items": { "$ref": "#/$defs/AIFRuleId" } },
+        "oracle_rule_id": { "$ref": "#/$defs/NonEmptyString" }
       }
     },
 
@@ -1140,8 +1142,8 @@ All referenced schemas MUST be interpreted using JSON Schema Draft 2020-12 seman
             }
           }
         },
-        "reasoning_sensitivity": { "type": "array", "items": { "$ref": "#/$defs/SensitivityRecord" } },
-        "model_sensitivity": { "type": "array", "items": { "$ref": "#/$defs/SensitivityRecord" } }
+        "reasoning_sensitivity": { "type": ["array", "null"], "items": { "$ref": "#/$defs/SensitivityRecord" } },
+        "model_sensitivity": { "type": ["array", "null"], "items": { "$ref": "#/$defs/SensitivityRecord" } }
       }
     },
 

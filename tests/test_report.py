@@ -84,8 +84,7 @@ def test_generate_report():
     sens = ms[0]
     # Delta SRAS between 3.5 (0.733) and 3.7 (0.9, only runs case1)
     assert sens["SRAS"] > 0
-    assert "claude-3-5-sonnet<->claude-3-7-sonnet" in sens["key"]
-    
+    assert "claude/none" == sens["key"]
     # Check Reasoning Sensitivity (should be empty as all are "none")
     rs = report["reasoning_sensitivity"]
-    assert len(rs) == 0
+    assert rs is None

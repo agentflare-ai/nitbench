@@ -40,12 +40,12 @@ def select_and_place_aif(case_dir: Path, agent_family: str, repo_workspace: Path
 def extract_aif_markers(aif_path: Path) -> Set[str]:
     """
     Parse the placed AIF and extract all AIF Rule Markers.
-    Must be unique, format: <!-- NITBENCH_RULE:<rule_id> -->
+    Must be unique, format: <!-- NBR:<rule_id> -->
     """
     content = aif_path.read_text(encoding="utf-8")
-    # Marker regex: <!-- NITBENCH_RULE:<rule_id> --> on its own line (ignoring leading/trailing whitespace)
+    # Marker regex: <!-- NBR:<rule_id> --> on its own line (ignoring leading/trailing whitespace)
     # The rule_id matches ^[A-Z0-9][A-Z0-9._-]{0,63}$
-    pattern = r"^\s*<!--\s*NITBENCH_RULE:([A-Z0-9][A-Z0-9._-]{0,63})\s*-->\s*$"
+    pattern = r"^\s*<!--\s*NBR:([A-Z0-9][A-Z0-9._-]{0,63})\s*-->\s*$"
     
     markers = set()
     duplicates = set()
@@ -97,26 +97,23 @@ def generate_oracle_bundle(
             continue
             
         oracle_id = oracle.get("id")
-        # In a real generator, the generator knows which rule_ids it enforces.
-        # we'll dummy it out for the skeleton: it assumes it enforces a rule named exactly oracle_id upper-cased for now
-        # OR we leave the equivalence check strict. If AIF doesn't contain a corresponding marker, it fails.
-        oracle_rule_id = f"{oracle_id.upper()}_RULE"
         
-        # We must find at least one marker for this oracle to be valid
-        # This is a simplification. Real implementation would use AIF parser.
-        # If we have a marker matching the oracle ID, we link it.
-        refs = [m for m in aif_markers if oracle_id.upper() in m]
-        if not refs:
-            # Try to just match anything for the generic fixture
-            if aif_markers:
-                refs = list(aif_markers)[:1] # Pick the first one blindly for mock purposes
-            else:
-                raise OracleBundleError(f"case_invalid:aif_oracle_mismatch (Oracle {oracle_id} lacks AIF marker)")
+        # Parse explicit equivalence mapping from the oracle definition
+        aif_rule_refs = oracle.get("aif_rule_refs", [])
+        if not aif_rule_refs:
+            raise OracleBundleError(f"case_invalid:aif_oracle_mismatch (Oracle {oracle_id} lacks explicit aif_rule_refs mapping)")
+            
+        oracle_rule_id = oracle.get("oracle_rule_id", f"{oracle_id.upper()}_RULE")
+        
+        # Verify that all explicitly referenced AIF rules actually exist in the AIF
+        missing_refs = [ref for ref in aif_rule_refs if ref not in aif_markers]
+        if missing_refs:
+            raise OracleBundleError(f"case_invalid:aif_oracle_mismatch (Oracle {oracle_id} references missing AIF markers: {', '.join(missing_refs)})")
                 
         rules.append({
             "oracle_id": oracle_id,
             "oracle_rule_id": oracle_rule_id,
-            "aif_rule_refs": sorted(refs)
+            "aif_rule_refs": sorted(aif_rule_refs)
         })
 
     # Sort rules for determinism

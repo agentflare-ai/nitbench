@@ -783,6 +783,15 @@
         },
         "counting": {
           "$ref": "#/$defs/Counting"
+        },
+        "aif_rule_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AIFRuleId"
+          }
+        },
+        "oracle_rule_id": {
+          "$ref": "#/$defs/NonEmptyString"
         }
       }
     },
@@ -1386,13 +1395,19 @@
           }
         },
         "reasoning_sensitivity": {
-          "type": "array",
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "$ref": "#/$defs/SensitivityRecord"
           }
         },
         "model_sensitivity": {
-          "type": "array",
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "$ref": "#/$defs/SensitivityRecord"
           }

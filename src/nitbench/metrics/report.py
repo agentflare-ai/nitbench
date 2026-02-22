@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Tuple
 from collections import defaultdict
+from nitbench.validation.validator import SchemaValidator
 
 def generate_report(
     suite_id: str,
@@ -107,56 +108,52 @@ def generate_report(
         "reasoning_sensitivity": _compute_sensitivity(results, "reasoning"),
         "model_sensitivity": _compute_sensitivity(results, "model")
     }
+    
+    schema_val = SchemaValidator()
+    schema_val.validate(report, "Report")
+    
     return report
 
 def _compute_sensitivity(results: List[Dict[str, Any]], mode: str) -> List[Dict[str, Any]]:
-    # Simple MVP implementation: pairs varying only by the target attribute
-    pairs = []
+    # Spec 17.7: RS and MS MUST be computed for fixed attributes.
+    groups = defaultdict(list)
     
-    for r1 in results:
-        for r2 in results:
-            if r1 == r2: continue
+    for r in results:
+        if r.get("interaction_mode") != "pty" or r.get("aut_mode") != "manual":
+            continue
             
-            match = (
-                r1["agent_family"] == r2["agent_family"] and
-                r1["interaction_mode"] == r2["interaction_mode"] and
-                r1["aut_mode"] == r2["aut_mode"]
-            )
+        if mode == "reasoning":
+            # Fixed: agent_family, model_id, interaction_mode, aut_mode
+            key = (r.get("agent_family"), r.get("model_id"))
+        elif mode == "model":
+            # Fixed: agent_family, reasoning_level, interaction_mode, aut_mode
+            # Serialize reasoning_level to handle both string and int safely
+            key = (r.get("agent_family"), str(r.get("reasoning_level")))
+        else:
+            continue
             
-            if not match: continue
-            
-            if mode == "reasoning":
-                # Model must match, reasoning must differ
-                if r1["model_id"] == r2["model_id"] and r1["reasoning_level"] != r2["reasoning_level"]:
-                    key = f"{r1['agent_family']}/{r1['model_id']}:{r1['reasoning_level']}->{r2['reasoning_level']}"
-                    pairs.append((key, r1, r2))
-                    
-            elif mode == "model":
-                # Models differ, reasoning must match
-                if r1["model_id"] != r2["model_id"] and r1["reasoning_level"] == r2["reasoning_level"]:
-                    key = f"{r1['agent_family']}/{r1['reasoning_level']}:{r1['model_id']}->{r2['model_id']}"
-                    pairs.append((key, r1, r2))
-                    
+        groups[key].append(r)
+        
     sensitivities = []
-    for key, r1, r2 in pairs:
-        m1 = r1["suite_metrics"]
-        m2 = r2["suite_metrics"]
+    for key, group in groups.items():
+        if len(group) < 2:
+            continue
+            
+        sras_vals = [r["suite_metrics"]["SRAS_suite"] for r in group if r["suite_metrics"]["SRAS_suite"] is not None]
+        dr_vals = [r["suite_metrics"]["DR_suite"] for r in group if r["suite_metrics"]["DR_suite"] is not None]
+        rr_vals = [r["suite_metrics"]["RR_suite"] for r in group if r["suite_metrics"]["RR_suite"] is not None]
+        os_vals = [r["suite_metrics"]["OS_suite"] for r in group if r["suite_metrics"].get("OS_suite") is not None]
         
         sens = {
-            "key": key,
-            "SRAS": abs(m1["SRAS_suite"] - m2["SRAS_suite"]),
-            "DR": abs(m1["DR_suite"] - m2["DR_suite"]),
-            "RR": abs(m1["RR_suite"] - m2["RR_suite"]),
-            "OS": abs(m1["OS_suite"] - m2["OS_suite"]) if m1["OS_suite"] is not None and m2["OS_suite"] is not None else None
+            "key": f"{key[0]}/{key[1]}",
+            "SRAS": max(sras_vals) - min(sras_vals) if sras_vals else None,
+            "DR": max(dr_vals) - min(dr_vals) if dr_vals else None,
+            "RR": max(rr_vals) - min(rr_vals) if rr_vals else None,
+            "OS": max(os_vals) - min(os_vals) if os_vals else None
         }
-        # Deduplicate (A->B and B->A have the same absolute delta, just keep one stable representation)
+        sensitivities.append(sens)
         
-        # Sort key to ensure uniqueness
-        parts = key.split(":")
-        sorted_key = f"{parts[0]}:{'<->'.join(sorted(parts[1].split('->')))}"
-        sens["key"] = sorted_key
+    if not sensitivities:
+        return None
         
-        if not any(s["key"] == sorted_key for s in sensitivities):
-            sensitivities.append(sens)
-            
     return sensitivities

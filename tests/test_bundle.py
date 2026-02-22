@@ -40,10 +40,10 @@ def test_extract_aif_markers(tmp_path):
     # valid markers and invalid markers
     content = """
     # Rules
-    <!-- NITBENCH_RULE:NO_TABS -->
-      <!-- NITBENCH_RULE:CLEAN_IMPORTS -->  
-    <!-- NITBENCH_RULE:NO_TABS --> 
-    <!-- NITBENCH_RULE:-->
+    <!-- NBR:NO_TABS -->
+      <!-- NBR:CLEAN_IMPORTS -->  
+    <!-- NBR:NO_TABS --> 
+    <!-- NBR:-->
     """
     aif.write_text(content, encoding="utf-8")
     
@@ -53,8 +53,8 @@ def test_extract_aif_markers(tmp_path):
     # Valid unique markers
     content = """
     # Rules
-    <!-- NITBENCH_RULE:NO_TABS -->
-    <!-- NITBENCH_RULE:CLEAN_IMPORTS -->
+    <!-- NBR:NO_TABS -->
+    <!-- NBR:CLEAN_IMPORTS -->
     """
     aif.write_text(content, encoding="utf-8")
     markers = extract_aif_markers(aif)
@@ -62,7 +62,7 @@ def test_extract_aif_markers(tmp_path):
 
 def test_generate_oracle_bundle(tmp_path):
     aif = tmp_path / "CLAUDE.md"
-    aif.write_text("<!-- NITBENCH_RULE:PYLINT_001 -->", encoding="utf-8")
+    aif.write_text("<!-- NBR:PYLINT_RULE -->", encoding="utf-8")
     
     scoring_yaml = {
         "case_id": "test.case.001",
@@ -73,7 +73,8 @@ def test_generate_oracle_bundle(tmp_path):
         "oracles": [
             {
                 "id": "pylint",
-                "soft_rule": True
+                "soft_rule": True,
+                "aif_rule_refs": ["PYLINT_RULE"]
             }
         ]
     }
@@ -86,4 +87,4 @@ def test_generate_oracle_bundle(tmp_path):
     assert data["generator_id"] == "test-gen"
     assert data["oracle_bundle_sha256"] == bundle_hash
     assert data["rules"][0]["oracle_id"] == "pylint"
-    assert data["rules"][0]["aif_rule_refs"] == ["PYLINT_001"]
+    assert data["rules"][0]["aif_rule_refs"] == ["PYLINT_RULE"]

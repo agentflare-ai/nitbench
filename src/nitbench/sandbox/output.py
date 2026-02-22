@@ -7,6 +7,7 @@ from typing import Any, Dict
 from nitbench.sandbox.checkpoint import CheckpointManager
 from nitbench.sandbox.validator import RunValidator
 from nitbench.metrics.scoring import calculate_metrics
+from nitbench.validation.validator import SchemaValidator
 
 def finalize_run(
     case_dir: Path,
@@ -15,39 +16,50 @@ def finalize_run(
     scoring_data: Dict[str, Any],
     agent_profile: Dict[str, Any],
     harness_artifacts: Path,
+    artifacts_dir: Path,
     validator: RunValidator,
     checkpoint_mgr: CheckpointManager,
     oracle_bundle_sha256: str,
-    repo_initial_sha256: str
+    repo_initial_sha256: str,
+    aif_sha256: str,
+    task_md_sha256: str,
+    start_time_utc: str = None
 ) -> Path:
     """
     Finalizes the NitBench case run, determining validity and writing the final output structure.
-    Returns the final run_result.json path.
+    Returns the final run.json path.
     """
-    out_dir = harness_artifacts / "run_result"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = harness_artifacts
     
     # 1. Determine run validity
-    run_validity = "case_invalid" if not validator.is_run_valid else "case_valid"
+    case_invalid_reasons = [r for r in validator.invalid_reasons if r.startswith("case_invalid:")]
+    run_invalid_reasons = [r for r in validator.invalid_reasons if not r.startswith("case_invalid:")]
     
-    # 2. Complete checkpoints.json hashes
-    checkpoints_out = {
+    is_case_valid = len(case_invalid_reasons) == 0
+    is_run_valid = len(run_invalid_reasons) == 0
+    
+    # 2. Complete hashes.json
+    hashes_out = {
         "hashes_version": validator.hashes.get("hashes_version"),
         "spec_version": validator.hashes.get("spec_version"),
         "case_id": validator.hashes.get("case_id"),
         "agent_profile_sha256": validator.hashes.get("agent_profile_sha256"),
+        "task_md_sha256": task_md_sha256,
+        "aif_sha256": aif_sha256,
         "repo_initial_sha256": repo_initial_sha256,
+        "oracle_bundle_sha256": oracle_bundle_sha256,
         "checkpoints": checkpoint_mgr.hashes
     }
     
-    cp_path = out_dir / "checkpoints.json"
-    with open(cp_path, "w", encoding="utf-8") as f:
-        json.dump(checkpoints_out, f, indent=2, sort_keys=True)
+    hashes_path = artifacts_dir / "hashes.json"
+
+    # Validate hashes.json against $defs.Hashes schema
+    schema_val = SchemaValidator()
+    schema_val.validate(hashes_out, "Hashes")
+
+    with open(hashes_path, "w", encoding="utf-8") as f:
+        json.dump(hashes_out, f, indent=2, sort_keys=True)
         
-    # Calculate checkpoints_json_sha256
-    cp_bytes = cp_path.read_bytes()
-    cp_hash = hashlib.sha256(cp_bytes).hexdigest()
-    
     # Calculate transcript_sha256
     ts_path = checkpoint_mgr.logger.log_path
     ts_hash = ""
@@ -57,7 +69,7 @@ def finalize_run(
     # Read Oracle Results
     oracle_results = {}
     for cp_id in checkpoint_mgr.executed_checkpoints:
-        cp_oracles_dir = harness_artifacts / "checkpoints" / cp_id / "oracles"
+        cp_oracles_dir = artifacts_dir / "checkpoints" / cp_id / "oracles"
         if not cp_oracles_dir.exists():
             continue
             
@@ -72,67 +84,54 @@ def finalize_run(
         oracle_results[cp_id] = cp_res
         
     # Calculate Metrics
-    metrics_data = calculate_metrics(scoring_data, checkpoints_data, oracle_results)
+    metrics_data = calculate_metrics(scoring_data, checkpoints_data, oracle_results, checkpoint_mgr.executed_proxies)
     
     # 3. Create run.json
-    import time
     from datetime import datetime, timezone
-    now_utc = datetime.now(timezone.utc).isoformat()
+    end_time = datetime.now(timezone.utc).isoformat()
+    actual_start = start_time_utc if start_time_utc else end_time
     
+    import platform
+    import subprocess
+    try:
+        git_version = subprocess.check_output(["git", "--version"], text=True).strip()
+    except Exception:
+        git_version = "unknown"
+
     run_json = {
         "run_version": "nitbench.run.v1",
         "spec_version": "1.0.0",
         "case_id": validator.hashes.get("case_id"),
         "agent_profile": agent_profile,
-        "interaction_mode": "pty",
-        "aut_mode": "manual",
-        "start_time_utc": now_utc, # Simplified for MVP
-        "end_time_utc": now_utc,
+        "interaction_mode": agent_profile.get("interaction_mode", "pty"),
+        "aut_mode": agent_profile.get("aut_mode", "manual"),
+        "start_time_utc": actual_start,
+        "end_time_utc": end_time,
         "toolchain": {
-            "os": "unknown",
-            "arch": "unknown",
-            "git_version": "unknown"
+            "os": platform.system().lower(),
+            "arch": platform.machine().lower(),
+            "git_version": git_version
         },
         "checkpoints": metrics_data["checkpoints"],
         "metrics": metrics_data["metrics"],
         "validity": {
-            "case_valid": True, # Assume true if we got this far
-            "run_valid": validator.is_run_valid,
+            "case_valid": is_case_valid,
+            "run_valid": is_run_valid,
             "invalid_reasons": validator.invalid_reasons,
             "penalties": []
         }
     }
     
     run_path = out_dir / "run.json"
+    
+    # Validate final output schema
+    schema_val = SchemaValidator()
+    schema_val.validate(run_json, "Run")
+    
     with open(run_path, "w", encoding="utf-8") as f:
         json.dump(run_json, f, indent=2)
         
-    # Calculate combined run_hash
-    # We must deterministically hash all constituent parts.
-    hash_str = f"{oracle_bundle_sha256}:{validator.hashes.get('agent_profile_sha256')}:{cp_hash}:{ts_hash}"
-    run_hash = hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
-    
-    # 4. Create run_result.json (Legacy, mapped structure for backward compat in MVP tests)
-    run_result = {
-        "run_hash": run_hash,
-        "run_validity": run_validity,
-        "invalid_reasons": validator.invalid_reasons,
-        "oracle_bundle_sha256": oracle_bundle_sha256,
-        "agent_profile_sha256": validator.hashes.get("agent_profile_sha256"),
-        "repo_initial_sha256": repo_initial_sha256,
-        "checkpoints_json_sha256": cp_hash,
-        "transcript_sha256": ts_hash
-    }
-    
-    result_path = out_dir / "run_result.json"
-    with open(result_path, "w", encoding="utf-8") as f:
-        json.dump(run_result, f, indent=2, sort_keys=True)
+    if ts_path.exists() and ts_path != out_dir / "transcript.log":
+        shutil.copy(ts_path, out_dir / "transcript.log")
         
-    # In a full run, we would also copy scoring.yaml, debug info, etc. into `out_dir`
-    if (case_dir / "scoring.yaml").exists():
-        shutil.copy(case_dir / "scoring.yaml", out_dir / "scoring.yaml")
-        
-    if ts_path.exists():
-        shutil.copy(ts_path, out_dir / "transcript.cast")
-        
-    return result_path
+    return run_path

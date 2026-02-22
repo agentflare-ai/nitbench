@@ -29,6 +29,8 @@ oracles:
     command: ["flake8", "."]
     timeout_seconds: 30
     mutates_snapshot: false
+    aif_rule_refs:
+      - PEP8_COMPLIANCE
     expected_exit_codes:
       ok: [0]
       violations: [1]

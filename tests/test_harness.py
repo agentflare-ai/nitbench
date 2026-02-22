@@ -8,10 +8,15 @@ def test_oracle_harness_execution(tmp_path):
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
     
-    snapshot = tmp_path / "snapshot"
-    snapshot.mkdir()
-    (snapshot / "code.py").write_text("print('bad')\n", encoding="utf-8")
+    import tarfile
+    snapshot_dir = tmp_path / "snapshot_dir"
+    snapshot_dir.mkdir()
+    (snapshot_dir / "code.py").write_text("print('bad')\n", encoding="utf-8")
     
+    snapshot = tmp_path / "snapshot.tgz"
+    with tarfile.open(snapshot, "w:gz") as tar:
+        tar.add(snapshot_dir, arcname="repo")
+        
     scoring_data = {
         "oracles": [
             {
@@ -24,7 +29,7 @@ def test_oracle_harness_execution(tmp_path):
                 },
                 "counting": {
                     "mode": "regex",
-                    "warning_regex": "warning"
+                    "regex_warning": "warning"
                 }
             }
         ]

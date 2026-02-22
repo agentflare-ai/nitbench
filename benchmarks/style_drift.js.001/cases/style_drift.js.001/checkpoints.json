@@ -1,0 +1,44 @@
+{
+  "checkpoints_version": "nitbench.checkpoints.v1",
+  "case_id": "style_drift.js.001",
+  "context_proxy": {
+    "type": "agent_action_count"
+  },
+  "checkpoints": [
+    {
+      "id": "cp_baseline",
+      "phase": "baseline",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 0
+      }
+    },
+    {
+      "id": "cp_early",
+      "phase": "work",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 5
+      }
+    },
+    {
+      "id": "cp_mid",
+      "phase": "work",
+      "score": true,
+      "trigger": {
+        "type": "at_proxy_value",
+        "value": 15
+      }
+    },
+    {
+      "id": "cp_final",
+      "phase": "final",
+      "score": true,
+      "trigger": {
+        "type": "end_of_run"
+      }
+    }
+  ]
+}

@@ -55,6 +55,15 @@ class TranscriptLogger:
             f.write(json.dumps(event.to_json_array()) + "\n")
 
 
+class ActionLogger:
+    def __init__(self, log_path: Path):
+        self.log_path = log_path
+
+    def log_action(self, action: Dict[str, Any]) -> None:
+        with open(self.log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(action) + "\n")
+
+
 class BudgetEnforcer:
     def __init__(self, budgets: Dict[str, int]):
         self.budgets = budgets

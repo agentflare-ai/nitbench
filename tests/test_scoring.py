@@ -15,12 +15,11 @@ def test_calculate_metrics():
     
     checkpoints_data = {
         "checkpoints": [
-            {"id": "cp_baseline", "phase": "baseline", "trigger": {"value": 0}},
-            {"id": "cp_work1", "phase": "work", "trigger": {"value": 10}},
-            {"id": "cp_work2", "phase": "work", "trigger": {"value": 20}}
+            {"id": "cp_baseline", "phase": "baseline", "score": True, "trigger": {"value": 0}},
+            {"id": "cp_work1", "phase": "work", "score": True, "trigger": {"value": 10}},
+            {"id": "cp_work2", "phase": "work", "score": True, "trigger": {"value": 20}}
         ]
-    }
-    
+    }    
     oracle_results = {
         "cp_baseline": {
             "mock1": {"error_count": 0, "warning_count": 0, "info_count": 0}
@@ -46,9 +45,10 @@ def test_calculate_metrics():
     m = res["metrics"]
     assert m["SRAS"] == 0.65  # (0.5 + 0.8) / 2
     
-    # Progress total = 20 - 10 = 10
+    # Progress total = 20 - 0 = 20
     # Drift mass = 5.0 (from 0 to 5 in work1)
-    assert m["DR"] == 0.5 # 5.0 / 10
+    # violation_budget = 10.0
+    assert m["DR"] == 0.025 # 5.0 / (10.0 * 20)
     
     # Recovery mass = 3.0 (from 5 down to 2 in work2)
     assert m["RR"] == 0.6 # 3.0 / 5.0

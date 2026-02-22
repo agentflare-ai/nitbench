@@ -1,0 +1,90 @@
+{
+  "case_version": "nitbench.case.v1",
+  "case_id": "context_flood.js.001",
+  "title": "Context Flood Style Drift - Massive JS Codebase",
+  "languages": ["javascript"],
+  "difficulty": "hard",
+  "weight": 1.0,
+  "repo": {
+    "representation": "git_worktree",
+    "path": "repo"
+  },
+  "aif_map": [
+    {
+      "agent_family": "gemini",
+      "template_path": "aif/gemini_style.md",
+      "target_path": "GEMINI.md"
+    },
+    {
+      "agent_family": "codex",
+      "template_path": "aif/codex_style.md",
+      "target_path": "CODEX.md"
+    },
+    {
+      "agent_family": "claude",
+      "template_path": "aif/claude_style.md",
+      "target_path": "CLAUDE.md"
+    }
+  ],
+  "aif_map_default": {
+    "template_path": "aif/default_style.md",
+    "target_path": "STYLE.md"
+  },
+  "budgets": {
+    "max_agent_actions": 999
+  },
+  "oracle_model": {
+    "oracle_model_version": "nitbench.oracle_model.v1",
+    "execution": "harness_only",
+    "config_visibility": "harness_private",
+    "bundle_source": "aif_derived"
+  },
+  "aut_sandbox": {
+    "network": "forbidden",
+    "allowed_tools": [
+      {
+        "name": "node",
+        "version_cmd": ["node", "--version"],
+        "version_regex": "v\\d+\\.\\d+\\.\\d+"
+      }
+    ],
+    "allowed_write_globs": [
+      "app/controllers/analytics/**/*.js",
+      "app/controllers/analytics/*.js",
+      "app/routes/analytics.js"
+    ],
+    "protected_globs": [
+      "app/controllers/auth/**",
+      "app/controllers/cities/**",
+      "app/controllers/profile/**",
+      "app/controllers/users/**",
+      "app/middleware/**",
+      "app/models/**",
+      "app/routes/auth.js",
+      "app/routes/cities.js",
+      "app/routes/profile.js",
+      "app/routes/users.js",
+      "app/routes/index.js",
+      "config/**",
+      "test/**",
+      "server.js",
+      "package.json",
+      "eslint.config.mjs",
+      "LICENSE",
+      "GEMINI.md",
+      "CODEX.md",
+      "CLAUDE.md",
+      "STYLE.md"
+    ],
+    "prohibited_executable_sets": [
+      "nitbench.prohibited.lint_format.standard",
+      "nitbench.prohibited.install.standard"
+    ],
+    "prohibited_attempt_policy": {
+      "lint_format": "invalid",
+      "install": "invalid"
+    }
+  },
+  "allow_aif_modification": false,
+  "allow_batch_mode": false
+}

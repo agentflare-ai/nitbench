@@ -27,6 +27,7 @@ class CheckpointManager:
         self.tracker = ContextProxyTracker(proxy_type)
         self.checkpoints = checkpoints_def.get("checkpoints", [])
         self.executed_checkpoints: List[str] = []
+        self.executed_proxies: Dict[str, int] = {}
         self.hashes: List[Dict[str, str]] = []
         
     def _freeze_snapshot(self, checkpoint_id: str) -> None:
@@ -53,6 +54,13 @@ class CheckpointManager:
             "checkpoint_id": checkpoint_id,
             "repo_state_sha256": repo_state_sha256
         })
+        
+        import tarfile
+        tgz_path = snapshot_dir / "repo.snapshot.tgz"
+        with tarfile.open(tgz_path, "w:gz") as tar:
+            tar.add(repo_copy, arcname="repo")
+            
+        shutil.rmtree(repo_copy)
 
     def trigger_if_needed(self, trigger_type: str, current_value: Optional[int] = None) -> None:
         """
@@ -87,3 +95,4 @@ class CheckpointManager:
         })
         
         self.executed_checkpoints.append(checkpoint_id)
+        self.executed_proxies[checkpoint_id] = proxy_value

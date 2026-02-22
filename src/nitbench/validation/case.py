@@ -52,6 +52,8 @@ def validate_case_json(case_dir: Path, validator: SchemaValidator, expected_case
     oracle = data.get("oracle_model", {})
     if oracle.get("execution") != "harness_only":
         raise CaseValidationError(f"oracle_model.execution must be 'harness_only', got {oracle.get('execution')}")
+    if oracle.get("bundle_source") != "aif_derived":
+        raise CaseValidationError(f"case_invalid:oracle_not_aif_derived. bundle_source must be 'aif_derived', got {oracle.get('bundle_source')}")
 
     # Sandbox checks
     sandbox = data.get("aut_sandbox", {})
